@@ -1,0 +1,7 @@
+{
+  "name": "Judo Interval Trainer",
+  "description": "A professional interval timer for Judo and fitness with voice recording capabilities for custom commands.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

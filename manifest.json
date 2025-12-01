@@ -1,0 +1,21 @@
+{
+  "name": "Judo Timer",
+  "short_name": "JudoTimer",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/76/76807.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/76/76807.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
