@@ -13,7 +13,7 @@ const getAudioContext = () => {
 };
 
 // Generic envelope helper
-const playTone = (freq: number, type: OscillatorType, startTime: number, duration: number, vol = 0.1) => {
+const playTone = (freq: number, type: OscillatorType, startTime: number, duration: number, vol = 0.5) => {
     const ctx = getAudioContext();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -35,7 +35,8 @@ const playTone = (freq: number, type: OscillatorType, startTime: number, duratio
 export const playBeep = (freq = 800, type: OscillatorType = 'sine', duration = 0.1) => {
   try {
     const ctx = getAudioContext();
-    playTone(freq, type, ctx.currentTime, duration, 0.1);
+    // Increased default volume for generic beeps (countdown)
+    playTone(freq, type, ctx.currentTime, duration, 0.5);
   } catch (e) {
     console.error("Audio play failed", e);
   }
@@ -43,46 +44,46 @@ export const playBeep = (freq = 800, type: OscillatorType = 'sine', duration = 0
 
 export const playStartBeep = () => {
   // TRENDY 2025 SOUND: "Digital Chime" (Positive A-Major Chord)
-  // Replaces the old harsh beep with a harmonious, energetic start signal
+  // VOLUME BOOSTED
   try {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
     
     // Play a quick chord (Root, 3rd, 5th)
-    // A5 (880Hz)
-    playTone(880, 'triangle', now, 0.6, 0.2); 
-    // C#6 (1108Hz)
-    playTone(1108.73, 'triangle', now, 0.6, 0.15);
-    // E6 (1318Hz)
-    playTone(1318.51, 'triangle', now, 0.6, 0.15);
+    // A5 (880Hz) - Boosted to 0.7
+    playTone(880, 'triangle', now, 0.6, 0.7); 
+    // C#6 (1108Hz) - Boosted to 0.6
+    playTone(1108.73, 'triangle', now, 0.6, 0.6);
+    // E6 (1318Hz) - Boosted to 0.6
+    playTone(1318.51, 'triangle', now, 0.6, 0.6);
     
-    // Add a subtle high-pitch sparkle for "glassy" effect
-    playTone(1760, 'sine', now, 0.2, 0.05);
+    // Sparkle - Boosted to 0.3
+    playTone(1760, 'sine', now, 0.2, 0.3);
 
   } catch (e) {
     console.error("Modern beep failed", e);
-    playBeep(880, 'square', 0.2);
+    playBeep(880, 'square', 0.5);
   }
 };
 
 export const playRestBeep = () => {
-  // "Glass Bell" - Bright, ringing, but distinct from the Start chord
-  // Uses a higher pitch interval (E6 + G#6) to cut through
+  // "Glass Bell" - Bright, ringing
+  // VOLUME BOOSTED
   try {
       const ctx = getAudioContext();
       const now = ctx.currentTime;
       
-      // E6 (1318Hz) - High Triangle
-      playTone(1318.51, 'triangle', now, 0.5, 0.15);
+      // E6 (1318Hz) - Boosted to 0.8 (Main tone)
+      playTone(1318.51, 'triangle', now, 0.5, 0.8);
       
-      // G#6 (1661Hz) - Major 3rd above, creates a bright happy "Ding"
-      playTone(1661.22, 'triangle', now, 0.5, 0.12);
+      // G#6 (1661Hz) - Boosted to 0.6
+      playTone(1661.22, 'triangle', now, 0.5, 0.6);
       
-      // Subtle sine overtone for clarity
-      playTone(2637, 'sine', now, 0.3, 0.05);
+      // Overtone - Boosted to 0.4
+      playTone(2637, 'sine', now, 0.3, 0.4);
 
   } catch (e) {
-      playBeep(1318, 'sine', 0.3);
+      playBeep(1318, 'sine', 0.5);
   }
 };
 
@@ -100,8 +101,16 @@ export const playAudioFromBase64 = (base64String: string) => {
     
     ctx.decodeAudioData(bytes.buffer, (buffer) => {
       const source = ctx.createBufferSource();
+      const gainNode = ctx.createGain();
+      
       source.buffer = buffer;
-      source.connect(ctx.destination);
+      
+      // BOOST recorded audio volume by 3x (300%)
+      // Raw mic input is often very quiet
+      gainNode.gain.value = 3.0; 
+      
+      source.connect(gainNode);
+      gainNode.connect(ctx.destination);
       source.start(0);
     }, (err) => console.error("Error decoding audio", err));
   } catch (e) {
@@ -120,8 +129,9 @@ export const speakText = (text: string) => {
 
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'ru-RU'; 
-  utterance.rate = 1.0;     // Normal speed sounds more natural than 1.1
+  utterance.rate = 1.0;
   utterance.pitch = 1.0;
+  utterance.volume = 1.0; // Explicitly set to Max Volume
 
   // Get available voices
   const voices = window.speechSynthesis.getVoices();
@@ -129,11 +139,7 @@ export const speakText = (text: string) => {
   // Filter for Russian voices
   const ruVoices = voices.filter(v => v.lang.includes('ru') || v.lang.includes('RU'));
   
-  // Heuristic to pick the best "Human-like" voice available on the system
-  // 1. Google voices (usually high quality neural on Android/Chrome)
-  // 2. Premium/Enhanced voices (often available on iOS/macOS)
-  // 3. Microsoft voices (high quality on Windows)
-  // 4. Fallback to any Russian voice
+  // Heuristic to pick the best "Human-like" voice
   const preferredVoice = ruVoices.find(v => v.name.includes('Google')) || 
                          ruVoices.find(v => v.name.includes('Premium')) ||
                          ruVoices.find(v => v.name.includes('Enhanced')) ||
