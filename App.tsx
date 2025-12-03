@@ -6,9 +6,30 @@ import * as audio from './utils/audio';
 const PREPARE_TIME = 5; // seconds
 
 const DEFAULT_ROUNDS: Round[] = [
-  { id: '1', exerciseName: 'Раунд', workDuration: 20, restDuration: 10, ttsEnabled: false },
-  { id: '2', exerciseName: 'Раунд', workDuration: 20, restDuration: 10, ttsEnabled: false },
-  { id: '3', exerciseName: 'Раунд', workDuration: 20, restDuration: 10, ttsEnabled: false },
+  { 
+    id: '1', 
+    exerciseName: 'Раунд 1', 
+    workDuration: 10, 
+    restDuration: 10, 
+    ttsEnabled: false,
+    instructions: []
+  },
+  { 
+    id: '2', 
+    exerciseName: 'Раунд 2', 
+    workDuration: 10, 
+    restDuration: 10, 
+    ttsEnabled: false,
+    instructions: []
+  },
+  { 
+    id: '3', 
+    exerciseName: 'Раунд 3', 
+    workDuration: 10, 
+    restDuration: 10, 
+    ttsEnabled: false,
+    instructions: []
+  },
 ];
 
 export default function App() {
@@ -24,7 +45,6 @@ export default function App() {
   const [isEditable, setIsEditable] = useState(true);
 
   // Archive & Save State
-  // FIX: Initialize state directly from localStorage to prevent overwriting data on mount
   const [savedWorkouts, setSavedWorkouts] = useState<SavedWorkout[]>(() => {
     try {
       const stored = localStorage.getItem('judo_timer_workouts');
@@ -183,14 +203,17 @@ export default function App() {
   };
 
   const addRound = () => {
-    const newRound: Round = {
-      id: Math.random().toString(36).substr(2, 9),
-      exerciseName: 'Раунд',
-      workDuration: 20,
-      restDuration: 10,
-      ttsEnabled: false // Default to disabled (BEEP ONLY)
-    };
-    setRounds(prev => [...prev, newRound]);
+    setRounds(prev => {
+      const nextNum = prev.length + 1;
+      const newRound: Round = {
+        id: Math.random().toString(36).substr(2, 9),
+        exerciseName: `Раунд ${nextNum}`,
+        workDuration: 10,
+        restDuration: 10,
+        ttsEnabled: false // Default to disabled (BEEP ONLY)
+      };
+      return [...prev, newRound];
+    });
   };
 
   const toggleTimer = () => {
@@ -219,6 +242,15 @@ export default function App() {
     setIsEditable(true);
   };
 
+  const handleResetToDefaults = () => {
+    if (window.confirm('Сбросить все настройки к стандартным?')) {
+      const defaults = DEFAULT_ROUNDS.map(r => ({...r, id: Math.random().toString(36).substr(2, 9)}));
+      setRounds(defaults);
+      setCycles(1);
+      resetTimer();
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const s = Math.ceil(seconds);
     const m = Math.floor(s / 60);
@@ -233,7 +265,7 @@ export default function App() {
       name: workoutName,
       date: Date.now(),
       rounds: rounds,
-      cycles: cycles // Save cycle count
+      cycles: cycles
     };
     setSavedWorkouts(prev => [newWorkout, ...prev]);
     setIsSaveOpen(false);
@@ -243,7 +275,7 @@ export default function App() {
   const handleLoadWorkout = (workout: SavedWorkout) => {
     if (window.confirm(`Загрузить тренировку "${workout.name}"? Текущая будет заменена.`)) {
       setRounds(workout.rounds);
-      setCycles(workout.cycles || 1); // Load cycle count
+      setCycles(workout.cycles || 1);
       setIsArchiveOpen(false);
       resetTimer();
     }
@@ -289,6 +321,7 @@ export default function App() {
     }
   };
 
+  // Modern gradients for the fill animation
   const getGradientClass = () => {
     switch(phase) {
         case Phase.PREPARE: return 'bg-gradient-to-r from-yellow-600 to-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.4)]';
@@ -299,98 +332,190 @@ export default function App() {
     }
   };
 
+  // --- LOGIC FOR NEXT EXERCISES PREVIEW ---
+  const getNextExercisesString = () => {
+      const upcoming = [];
+      // Look ahead up to 3 rounds
+      for (let i = 1; i <= 3; i++) {
+          const nextIdx = currentRoundIndex + i;
+          
+          if (nextIdx < rounds.length) {
+              upcoming.push(rounds[nextIdx].exerciseName);
+          } else if (currentCycle < cycles - 1) {
+              // Wrap around logic if cycles exist
+              const wrapIdx = nextIdx - rounds.length;
+              if (wrapIdx < rounds.length) upcoming.push(rounds[wrapIdx].exerciseName);
+          }
+      }
+      return upcoming.join(' • ');
+  };
+
+  const nextExercisesPreview = getNextExercisesString();
+
+
   return (
     <div className="min-h-screen bg-black flex flex-col max-w-lg mx-auto border-x border-white/5 relative overflow-hidden">
       
-      {/* HEADER */}
-      <div className="sticky top-0 bg-black/95 backdrop-blur-md z-[150] border-b border-white/10 p-4 pb-4">
-        
-        {/* Meta Info Row & Controls */}
-        <div className="flex justify-between items-center mb-3">
-             <div className="flex items-center gap-2">
-                 <div className="text-xs font-bold text-white/50 tracking-[0.2em] uppercase">
-                   {phase === Phase.PREPARE ? 'ПОДГОТОВКА' : 
-                    phase === Phase.COMPLETE ? 'ФИНИШ' : 
-                    (cycles > 1 
-                        ? `ЦИКЛ ${currentCycle + 1}/${cycles} • РАУНД ${currentRoundIndex + 1}/${rounds.length}`
-                        : `РАУНД ${currentRoundIndex + 1} / ${rounds.length}`
-                    )}
+      {/* 
+        CONDITIONAL LAYOUT SWITCH 
+        If Running/Paused: Show "Focus Mode" (Full screen timer + animations)
+        If Idle: Show "Edit Mode" (Header + List)
+      */}
+      
+      {status === TimerStatus.IDLE ? (
+        // --- EDIT MODE (IDLE) ---
+        <>
+          {/* HEADER */}
+          <div className="sticky top-0 bg-black/95 backdrop-blur-md z-[150] border-b border-white/10 p-4 pb-4">
+            
+            <div className="flex justify-between items-center mb-3">
+                 <div className="flex items-center gap-2">
+                     <div className="text-xs font-bold text-white/50 tracking-[0.2em] uppercase">
+                       {cycles > 1 ? `ЦИКЛЫ: ${cycles}` : 'НАСТРОЙКА'}
+                     </div>
                  </div>
-                 {status !== TimerStatus.IDLE && (
-                   <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase text-black ${getPhaseBg()}`}>
-                      {phase === Phase.PREPARE ? 'READY' : phase === Phase.WORK ? 'WORK' : phase === Phase.REST ? 'REST' : 'DONE'}
-                   </div>
-                 )}
-             </div>
 
-             {/* Archive & Save Buttons (Visible in IDLE) */}
-             <div className="flex gap-2">
-                 <button 
-                   onClick={() => setIsArchiveOpen(true)}
-                   className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-95"
-                   title="Архив тренировок"
-                 >
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                 </button>
-                 {status === TimerStatus.IDLE && (
-                   <button 
-                     onClick={() => setIsSaveOpen(true)}
-                     className="w-8 h-8 rounded-full bg-white/5 hover:bg-[#ff3d00] flex items-center justify-center text-white/70 hover:text-black transition-all active:scale-95"
-                     title="Сохранить тренировку"
-                   >
-                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                   </button>
-                 )}
-             </div>
-        </div>
+                 {/* Archive & Save Buttons */}
+                 <div className="flex gap-2">
+                     <button 
+                        onClick={handleResetToDefaults}
+                        className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-95"
+                        title="Сброс к начальным настройкам"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                      </button>
+                     <button 
+                       onClick={() => setIsArchiveOpen(true)}
+                       className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-95"
+                       title="Архив тренировок"
+                     >
+                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                     </button>
+                     <button 
+                       onClick={() => setIsSaveOpen(true)}
+                       className="w-8 h-8 rounded-full bg-white/5 hover:bg-[#ff3d00] flex items-center justify-center text-white/70 hover:text-black transition-all active:scale-95"
+                       title="Сохранить тренировку"
+                     >
+                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                     </button>
+                 </div>
+            </div>
 
-        {/* Main Display Row */}
-        <div className="flex items-stretch gap-3 h-24 sm:h-28">
-          {/* Big Timer */}
-          <div className={`flex items-center text-6xl sm:text-7xl font-black font-mono leading-none tracking-tighter tabular-nums ${getPhaseColor()}`}>
-             {formatTime(timeLeft)}
-          </div>
-
-          {/* Animated Exercise Block */}
-          <div className="flex-1 relative rounded-xl overflow-hidden bg-[#1c1c1e] border border-white/10 shadow-inner group">
-              <div 
-                  className={`absolute inset-0 h-full transition-all duration-100 ease-linear ${getGradientClass()}`}
-                  style={{ width: `${progressPercent}%` }}
-              />
-              <div className="absolute inset-0 z-10 p-3 flex flex-col justify-center items-center text-center">
-                  <span className="text-2xl sm:text-3xl font-black uppercase leading-none text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] break-words line-clamp-2 mix-blend-normal">
-                      {phase === Phase.COMPLETE ? "ОТЛИЧНАЯ РАБОТА!" : 
-                       phase === Phase.REST ? "ОТДЫХ" : 
-                       (activeRound?.exerciseName || "...")}
-                  </span>
-                  {phase !== Phase.COMPLETE && status === TimerStatus.RUNNING && (
-                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/80 mt-1.5 drop-shadow-md truncate">
-                          {phase === Phase.REST && nextRound 
-                              ? `ДАЛЕЕ: ${nextRound.exerciseName}`
-                              : (phase === Phase.WORK ? 'РАБОТАЕМ!' : 'ПРИГОТОВИТЬСЯ')
-                          }
-                      </span>
-                  )}
+            {/* RESTORED Main Display Row (Timer + Gradient Block) */}
+            <div className="flex items-stretch gap-3 h-24 sm:h-28">
+              {/* Big Timer */}
+              <div className={`flex items-center text-6xl sm:text-7xl font-black font-mono leading-none tracking-tighter tabular-nums ${getPhaseColor()}`}>
+                 {formatTime(timeLeft)}
               </div>
-          </div>
-        </div>
-      </div>
 
-      {/* BODY: List of Rounds */}
-      <div className="flex-1 p-4 overflow-y-auto">
-        <RoundEditor 
-          rounds={rounds}
-          cycles={cycles}
-          onUpdateCycles={setCycles}
-          onUpdateRound={updateRound}
-          onRemoveRound={removeRound}
-          onAddRound={addRound}
-          activeRoundId={status !== TimerStatus.IDLE ? activeRound?.id : null}
-          isEditable={isEditable}
-          currentPhase={phase}
-          timerStatus={status}
-        />
-      </div>
+              {/* Animated Exercise Block */}
+              <div className="flex-1 relative rounded-xl overflow-hidden bg-[#1c1c1e] border border-white/10 shadow-inner group">
+                  <div 
+                      className={`absolute inset-0 h-full transition-all duration-100 ease-linear ${getGradientClass()}`}
+                      style={{ width: `${status === TimerStatus.IDLE ? '100' : progressPercent}%` }}
+                  />
+                  <div className="absolute inset-0 z-10 p-3 flex flex-col justify-center items-center text-center">
+                      <span className="text-2xl sm:text-3xl font-black uppercase leading-none text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] break-words line-clamp-2 mix-blend-normal">
+                          {phase === Phase.COMPLETE ? "ОТЛИЧНАЯ РАБОТА!" : 
+                           phase === Phase.REST ? "ОТДЫХ" : 
+                           (activeRound?.exerciseName || "...")}
+                      </span>
+                      {status === TimerStatus.IDLE && (
+                          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/80 mt-1.5 drop-shadow-md truncate">
+                              ГОТОВ К СТАРТУ
+                          </span>
+                      )}
+                  </div>
+              </div>
+            </div>
+          </div>
+
+          {/* BODY: List of Rounds */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            <RoundEditor 
+              rounds={rounds}
+              cycles={cycles}
+              onUpdateCycles={setCycles}
+              onUpdateRound={updateRound}
+              onRemoveRound={removeRound}
+              onAddRound={addRound}
+              activeRoundId={null}
+              isEditable={isEditable}
+              currentPhase={phase}
+              timerStatus={status}
+            />
+          </div>
+        </>
+      ) : (
+        // --- FOCUS MODE (RUNNING/PAUSED) ---
+        <div className="flex-1 flex flex-col relative h-full">
+           {/* Top Info Bar */}
+           <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent">
+               <div className="text-xs font-bold text-white/50 tracking-[0.2em] uppercase">
+                  {cycles > 1 ? `C${currentCycle + 1}/${cycles} • ` : ''} 
+                  {phase === Phase.COMPLETE ? 'FINISH' : `R${currentRoundIndex + 1}/${rounds.length}`}
+               </div>
+               <div className={`px-2 py-0.5 rounded text-[10px] font-black uppercase text-black ${getPhaseBg()}`}>
+                  {phase === Phase.PREPARE ? 'READY' : phase === Phase.WORK ? 'WORK' : phase === Phase.REST ? 'REST' : 'DONE'}
+               </div>
+           </div>
+
+           {/* Main Content Area: Centered */}
+           <div className="flex-1 flex flex-col items-center justify-center p-4 space-y-4 w-full">
+              
+              {/* Giant Timer */}
+              <div className={`text-[25vw] sm:text-[10rem] font-black leading-none tracking-tighter tabular-nums transition-colors duration-300 ${getPhaseColor()} drop-shadow-[0_0_30px_rgba(0,0,0,0.5)]`}>
+                 {formatTime(timeLeft)}
+              </div>
+
+              {/* Animated Exercise Name Block (Gradient Filled) */}
+              {phase !== Phase.COMPLETE && (
+                <div className="w-full max-w-md relative rounded-2xl overflow-hidden bg-[#1c1c1e] border border-white/10 shadow-2xl h-32 sm:h-40 flex items-center justify-center group mt-4">
+                    {/* Fill Layer */}
+                    <div 
+                        className={`absolute inset-0 h-full transition-all duration-100 ease-linear ${getGradientClass()}`}
+                        style={{ width: `${progressPercent}%` }}
+                    />
+                    
+                    {/* Text Layer */}
+                    <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
+                       <span className="text-3xl sm:text-5xl font-black uppercase text-center leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                           {phase === Phase.REST ? 'ОТДЫХ' : (activeRound?.exerciseName || "Раунд")}
+                       </span>
+                    </div>
+                </div>
+              )}
+
+              {/* NEXT EXERCISES PREVIEW (New Block) */}
+              {status === TimerStatus.RUNNING && phase !== Phase.COMPLETE && nextExercisesPreview && (
+                  <div className="w-full max-w-md relative rounded-xl overflow-hidden bg-[#1c1c1e] border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.15)] h-12 flex items-center justify-center animate-step-enter">
+                      {/* Soft Blue/Purple Glow Background */}
+                      <div className="absolute inset-0 opacity-20 bg-gradient-to-r from-blue-600 to-purple-600 animate-pulse"></div>
+                      
+                      {/* Content */}
+                      <div className="relative z-10 flex items-center gap-2 px-4 truncate max-w-full">
+                          <span className="text-[10px] uppercase font-bold text-blue-400 tracking-widest opacity-80">Next:</span>
+                          <span 
+                            className="text-blue-100 font-bold uppercase tracking-wide truncate"
+                            style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.2rem)' }}
+                          >
+                             {nextExercisesPreview}
+                          </span>
+                      </div>
+                  </div>
+              )}
+              
+              {phase === Phase.PREPARE && (
+                 <div className="text-white/50 text-sm uppercase tracking-widest animate-pulse mt-4">Приготовиться</div>
+              )}
+              
+              {phase === Phase.COMPLETE && (
+                 <div className="text-green-500 text-2xl font-black uppercase tracking-widest animate-bounce mt-4">Тренировка окончена!</div>
+              )}
+
+           </div>
+        </div>
+      )}
 
       {/* FOOTER: Controls */}
       <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto p-4 bg-gradient-to-t from-black via-black to-transparent z-[150]">

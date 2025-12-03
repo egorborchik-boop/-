@@ -36,21 +36,72 @@
 
       /* Pulse animation for active elements */
       @keyframes sync-pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.8; }
+        0%, 100% { opacity: 1; text-shadow: 0 0 20px currentColor; }
+        50% { opacity: 0.8; text-shadow: 0 0 10px currentColor; }
       }
       .animate-sync-pulse {
         animation: sync-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
       }
+
+      /* --- NEW UI ANIMATIONS --- */
+
+      /* 1. Exercise Title Fill-In Effect */
+      @keyframes text-fill-reveal {
+        0% { background-size: 0% 100%; }
+        100% { background-size: 100% 100%; }
+      }
+
+      .exercise-title-fill {
+        /* Gradient serves as the fill color */
+        background-image: linear-gradient(to right, #ffffff 0%, #ffffff 100%);
+        background-repeat: no-repeat;
+        background-size: 0% 100%; /* Starts empty */
+        background-position: left center;
+        
+        /* Clip background to text */
+        -webkit-background-clip: text;
+        background-clip: text;
+        
+        /* Initial text color is transparent/dim so background shows through */
+        color: rgba(255, 255, 255, 0.1); 
+        
+        /* Animation properties */
+        animation: text-fill-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+
+      /* 2. List Item Staggered Entrance */
+      @keyframes slide-in-up-fade {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .animate-step-enter {
+        opacity: 0; /* Start hidden */
+        animation: slide-in-up-fade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      
+      /* Stagger delays for up to 5 items */
+      .animate-step-enter:nth-child(1) { animation-delay: 0.3s; }
+      .animate-step-enter:nth-child(2) { animation-delay: 0.4s; }
+      .animate-step-enter:nth-child(3) { animation-delay: 0.5s; }
+      .animate-step-enter:nth-child(4) { animation-delay: 0.6s; }
+      .animate-step-enter:nth-child(5) { animation-delay: 0.7s; }
+
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "vite": "https://aistudiocdn.com/vite@^7.2.6",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
   }
 }
 </script>

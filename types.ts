@@ -18,6 +18,7 @@ export interface Round {
   restDuration: number; // in seconds
   customAudio?: string; // base64 encoded audio
   ttsEnabled?: boolean; // Text-to-speech enabled flag
+  instructions?: string[]; // Optional list of preparation steps
 }
 
 export interface SavedWorkout {
