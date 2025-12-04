@@ -32,6 +32,74 @@ const DEFAULT_ROUNDS: Round[] = [
   },
 ];
 
+// Preloaded workout 1: Judo Complex
+const PRELOADED_JUDO_WORKOUT: SavedWorkout = {
+  id: 'default-uchi-komi-complex',
+  name: 'Учи-коми Комплекс',
+  date: Date.now(),
+  cycles: 1,
+  rounds: [
+    { 
+      id: 'def-u1', 
+      exerciseName: 'Учи-коми на месте', 
+      workDuration: 10, 
+      restDuration: 0, 
+      ttsEnabled: true,
+      instructions: []
+    },
+    { 
+      id: 'def-u2', 
+      exerciseName: 'Учи-коми в движении', 
+      workDuration: 10, 
+      restDuration: 0, 
+      ttsEnabled: true,
+      instructions: []
+    },
+    { 
+      id: 'def-u3', 
+      exerciseName: 'Учи-коми с отрывом', 
+      workDuration: 10, 
+      restDuration: 0, 
+      ttsEnabled: true,
+      instructions: []
+    },
+    { 
+      id: 'def-u4', 
+      exerciseName: 'Борьба на захват', 
+      workDuration: 20, 
+      restDuration: 10, 
+      ttsEnabled: true,
+      instructions: []
+    }
+  ]
+};
+
+// Preloaded workout 2: Series
+const PRELOADED_SERIES_WORKOUT: SavedWorkout = {
+  id: 'default-series-workout',
+  name: 'Серии',
+  date: Date.now(),
+  cycles: 1,
+  rounds: [
+    { id: 'ser-1', exerciseName: 'Бег вперёд назад', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-2', exerciseName: 'Прыжки лягушкой', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-3', exerciseName: 'Упор присест', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-4', exerciseName: 'Отжимания', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-5', exerciseName: 'Пресс', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-6', exerciseName: 'Приседания', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-7', exerciseName: 'Локти', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-8', exerciseName: 'Колени', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-9', exerciseName: 'Бабочка', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-10', exerciseName: 'Тяги', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-11', exerciseName: 'Толкание', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-12', exerciseName: 'Подсечки', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-13', exerciseName: 'Прыжки колени к груди', workDuration: 10, restDuration: 10, ttsEnabled: true, instructions: [] },
+    { id: 'ser-14', exerciseName: 'Бег на месте ускорение', workDuration: 5, restDuration: 15, ttsEnabled: true, instructions: [] },
+  ]
+};
+
+const PROTECTED_WORKOUT_IDS = [PRELOADED_JUDO_WORKOUT.id, PRELOADED_SERIES_WORKOUT.id];
+
 export default function App() {
   const [rounds, setRounds] = useState<Round[]>(DEFAULT_ROUNDS);
   // Cycle State
@@ -48,17 +116,31 @@ export default function App() {
   const [savedWorkouts, setSavedWorkouts] = useState<SavedWorkout[]>(() => {
     try {
       const stored = localStorage.getItem('judo_timer_workouts');
-      if (!stored) return [];
-      const parsed = JSON.parse(stored);
-      // MIGRATION: Ensure every workout has an ID to fix delete issues with old data
-      return Array.isArray(parsed) ? parsed.map((w: any) => ({
-        ...w,
-        id: w.id || Math.random().toString(36).substr(2, 9) + Date.now().toString(36),
-        cycles: w.cycles || 1
-      })) : [];
+      let workouts: SavedWorkout[] = [];
+
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // MIGRATION: Ensure every workout has an ID to fix delete issues with old data
+        workouts = Array.isArray(parsed) ? parsed.map((w: any) => ({
+          ...w,
+          id: w.id || Math.random().toString(36).substr(2, 9) + Date.now().toString(36),
+          cycles: w.cycles || 1
+        })) : [];
+      }
+
+      // Check and restore protected workouts if missing
+      const result = [...workouts];
+      if (!result.some(w => w.id === PRELOADED_SERIES_WORKOUT.id)) {
+        result.unshift(PRELOADED_SERIES_WORKOUT);
+      }
+      if (!result.some(w => w.id === PRELOADED_JUDO_WORKOUT.id)) {
+        result.unshift(PRELOADED_JUDO_WORKOUT);
+      }
+
+      return result;
     } catch (e) {
       console.error("Failed to load workouts", e);
-      return [];
+      return [PRELOADED_JUDO_WORKOUT, PRELOADED_SERIES_WORKOUT];
     }
   });
   
@@ -77,25 +159,15 @@ export default function App() {
     localStorage.setItem('judo_timer_workouts', JSON.stringify(savedWorkouts));
   }, [savedWorkouts]);
 
-  // Helper to safely play audio
-  const playPhaseAudio = (currentPhase: Phase, round: Round) => {
-    if (currentPhase === Phase.WORK) {
-      if (round.customAudio) {
-        // Priority 1: Recorded Voice
-        audio.playAudioFromBase64(round.customAudio);
-      } else if (round.ttsEnabled === true && round.exerciseName && round.exerciseName.trim()) {
-        // Priority 2: Text-to-Speech (Only if EXPLICITLY enabled)
-        audio.speakText(round.exerciseName);
-      } else {
-        // Priority 3: Default Beep (Default behavior)
-        audio.playStartBeep();
-      }
-    } else if (currentPhase === Phase.REST) {
-      audio.playRestBeep();
-    } else if (currentPhase === Phase.COMPLETE) {
-      audio.playRestBeep();
-      setTimeout(audio.playRestBeep, 300);
-      setTimeout(audio.playRestBeep, 600);
+  // --- AUDIO LOGIC HELPER ---
+  const playRoundVoice = (round: Round | undefined) => {
+    if (!round) return;
+    
+    // Check if voice is needed
+    if (round.customAudio) {
+       audio.playAudioFromBase64(round.customAudio);
+    } else if (round.ttsEnabled === true && round.exerciseName && round.exerciseName.trim()) {
+       audio.speakText(round.exerciseName);
     }
   };
 
@@ -106,71 +178,105 @@ export default function App() {
       // --- Countdown Beeps (3, 2, 1) ---
       const currentCeil = Math.ceil(prev);
       const nextCeil = Math.ceil(next);
-      
       if (nextCeil < currentCeil && nextCeil <= 3 && nextCeil > 0) {
          audio.playBeep(600, 'sine', 0.15);
       }
 
       if (prev <= 0.1) {
-        // Phase transition logic
+        // --- PHASE TRANSITION LOGIC ---
+        
+        // 1. PREPARE -> WORK
         if (phase === Phase.PREPARE) {
           setPhase(Phase.WORK);
-          playPhaseAudio(Phase.WORK, rounds[currentRoundIndex]);
+          audio.playStartBeep(); // "Chord"
+          // Voice: Already played at Start (in toggleTimer) or at end of previous cycle
           return rounds[currentRoundIndex].workDuration;
         } 
+        
+        // 2. WORK -> ...
         else if (phase === Phase.WORK) {
           const round = rounds[currentRoundIndex];
+          
           if (round.restDuration > 0) {
+            // WORK -> REST
             setPhase(Phase.REST);
-            playPhaseAudio(Phase.REST, round);
+            audio.playRestBeep(); // "Ding"
+            
+            // ANNOUNCE NEXT ROUND DURING REST
+            let nextR = null;
+            if (currentRoundIndex < rounds.length - 1) {
+               nextR = rounds[currentRoundIndex + 1];
+            } else if (currentCycle < cycles - 1) {
+               nextR = rounds[0]; // Next is start of new cycle
+            }
+            
+            if (nextR) {
+               // Slight delay so it doesn't overlap the Rest Beep
+               setTimeout(() => playRoundVoice(nextR), 600);
+            }
+            
             return round.restDuration;
           } else {
-            // No rest, go directly to next round or finish
+            // WORK -> WORK (No Rest) or FINISH
             if (currentRoundIndex < rounds.length - 1) {
-              setCurrentRoundIndex(idx => idx + 1);
+              // WORK -> NEXT WORK (Instant)
+              const nextIdx = currentRoundIndex + 1;
+              setCurrentRoundIndex(nextIdx);
               setPhase(Phase.WORK);
-              // We need to play audio for the NEW round
-              playPhaseAudio(Phase.WORK, rounds[currentRoundIndex + 1]);
-              return rounds[currentRoundIndex + 1].workDuration;
+              audio.playStartBeep(); // "Chord"
+              // No rest to speak in, so we must speak now + beep
+              setTimeout(() => playRoundVoice(rounds[nextIdx]), 300);
+              return rounds[nextIdx].workDuration;
             } else {
               // END OF ROUNDS LIST
               if (currentCycle < cycles - 1) {
-                 // START NEXT CYCLE
+                 // START NEXT CYCLE (PREPARE)
                  setCurrentCycle(c => c + 1);
                  setCurrentRoundIndex(0);
-                 setPhase(Phase.PREPARE); // 5s prep for new cycle
-                 audio.playBeep(600, 'sine', 0.2); // Cycle transition beep
+                 setPhase(Phase.PREPARE);
+                 audio.playBeep(600, 'sine', 0.2);
+                 setTimeout(() => playRoundVoice(rounds[0]), 300); // Announce first round of new cycle
                  return PREPARE_TIME;
               } else {
-                 // FINISH WORKOUT
+                 // FINISH
                  setPhase(Phase.COMPLETE);
                  setStatus(TimerStatus.IDLE);
-                 playPhaseAudio(Phase.COMPLETE, round);
+                 audio.playRestBeep();
+                 setTimeout(audio.playRestBeep, 300);
+                 setTimeout(audio.playRestBeep, 600);
                  return 0;
               }
             }
           }
         } 
+        
+        // 3. REST -> ...
         else if (phase === Phase.REST) {
           if (currentRoundIndex < rounds.length - 1) {
-            setCurrentRoundIndex(idx => idx + 1);
+            // REST -> NEXT WORK
+            const nextIdx = currentRoundIndex + 1;
+            setCurrentRoundIndex(nextIdx);
             setPhase(Phase.WORK);
-            playPhaseAudio(Phase.WORK, rounds[currentRoundIndex + 1]);
-            return rounds[currentRoundIndex + 1].workDuration;
+            audio.playStartBeep(); // "Chord"
+            // No voice here, we spoke during the rest!
+            return rounds[nextIdx].workDuration;
           } else {
-             // END OF ROUNDS LIST (AFTER LAST REST)
+             // LAST REST -> CYCLE or FINISH
               if (currentCycle < cycles - 1) {
-                 // START NEXT CYCLE
+                 // NEXT CYCLE
                  setCurrentCycle(c => c + 1);
                  setCurrentRoundIndex(0);
                  setPhase(Phase.PREPARE);
                  audio.playBeep(600, 'sine', 0.2);
+                 setTimeout(() => playRoundVoice(rounds[0]), 300);
                  return PREPARE_TIME;
               } else {
-                 // FINISH WORKOUT
+                 // FINISH
                  setPhase(Phase.COMPLETE);
                  setStatus(TimerStatus.IDLE);
-                 playPhaseAudio(Phase.COMPLETE, rounds[currentRoundIndex]);
+                 audio.playRestBeep();
+                 setTimeout(audio.playRestBeep, 300);
+                 setTimeout(audio.playRestBeep, 600);
                  return 0;
               }
           }
@@ -210,7 +316,7 @@ export default function App() {
         exerciseName: `Раунд ${nextNum}`,
         workDuration: 10,
         restDuration: 10,
-        ttsEnabled: false // Default to disabled (BEEP ONLY)
+        ttsEnabled: false
       };
       return [...prev, newRound];
     });
@@ -221,11 +327,14 @@ export default function App() {
       // Start fresh
       setPhase(Phase.PREPARE);
       setCurrentRoundIndex(0);
-      setCurrentCycle(0); // Reset cycles
+      setCurrentCycle(0);
       setTimeLeft(PREPARE_TIME);
       setStatus(TimerStatus.RUNNING);
       setIsEditable(false);
-      audio.playBeep(600, 'sine', 0.1); 
+      
+      // ANNOUNCE FIRST ROUND IMMEDIATELY ON START (During Prepare)
+      playRoundVoice(rounds[0]);
+      
     } else if (status === TimerStatus.RUNNING) {
       setStatus(TimerStatus.PAUSED);
     } else if (status === TimerStatus.PAUSED) {
@@ -273,17 +382,16 @@ export default function App() {
   };
 
   const handleLoadWorkout = (workout: SavedWorkout) => {
-    if (window.confirm(`Загрузить тренировку "${workout.name}"? Текущая будет заменена.`)) {
-      setRounds(workout.rounds);
-      setCycles(workout.cycles || 1);
-      setIsArchiveOpen(false);
-      resetTimer();
-    }
+    setRounds(workout.rounds);
+    setCycles(workout.cycles || 1);
+    setIsArchiveOpen(false);
+    resetTimer();
   };
 
   const handleDeleteWorkout = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    if (PROTECTED_WORKOUT_IDS.includes(id)) return;
     setSavedWorkouts(prev => prev.filter(w => w.id !== id));
   };
 
@@ -321,7 +429,6 @@ export default function App() {
     }
   };
 
-  // Modern gradients for the fill animation
   const getGradientClass = () => {
     switch(phase) {
         case Phase.PREPARE: return 'bg-gradient-to-r from-yellow-600 to-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.4)]';
@@ -332,40 +439,43 @@ export default function App() {
     }
   };
 
-  // --- LOGIC FOR NEXT EXERCISES PREVIEW ---
-  const getNextExercisesString = () => {
-      const upcoming = [];
-      // Look ahead up to 3 rounds
+  // --- LOGIC FOR NEXT EXERCISES LIST ---
+  // Returns array of up to 3 upcoming exercises
+  const getNextExercisesList = () => {
+      const upcoming: Round[] = [];
       for (let i = 1; i <= 3; i++) {
           const nextIdx = currentRoundIndex + i;
-          
           if (nextIdx < rounds.length) {
-              upcoming.push(rounds[nextIdx].exerciseName);
+              upcoming.push(rounds[nextIdx]);
           } else if (currentCycle < cycles - 1) {
-              // Wrap around logic if cycles exist
               const wrapIdx = nextIdx - rounds.length;
-              if (wrapIdx < rounds.length) upcoming.push(rounds[wrapIdx].exerciseName);
+              if (wrapIdx < rounds.length) upcoming.push(rounds[wrapIdx]);
           }
       }
-      return upcoming.join(' • ');
+      return upcoming;
   };
 
-  const nextExercisesPreview = getNextExercisesString();
+  const nextExercisesList = getNextExercisesList();
 
+  // Helper for trendy gradient styles based on index
+  const getNextBlockStyle = (index: number) => {
+      const styles = [
+          // Fuchsia/Purple (Trendy '25)
+          'border-fuchsia-500/30 shadow-[0_0_15px_rgba(217,70,239,0.15)] bg-gradient-to-r from-fuchsia-900/40 to-purple-900/40 text-fuchsia-100',
+          // Emerald/Cyan (Cyber Nature)
+          'border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)] bg-gradient-to-r from-emerald-900/40 to-cyan-900/40 text-emerald-100',
+          // Amber/Orange (Warm Energy)
+          'border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)] bg-gradient-to-r from-amber-900/40 to-orange-900/40 text-amber-100',
+      ];
+      return styles[index % styles.length];
+  };
 
   return (
     <div className="min-h-screen bg-black flex flex-col max-w-lg mx-auto border-x border-white/5 relative overflow-hidden">
       
-      {/* 
-        CONDITIONAL LAYOUT SWITCH 
-        If Running/Paused: Show "Focus Mode" (Full screen timer + animations)
-        If Idle: Show "Edit Mode" (Header + List)
-      */}
-      
       {status === TimerStatus.IDLE ? (
         // --- EDIT MODE (IDLE) ---
         <>
-          {/* HEADER */}
           <div className="sticky top-0 bg-black/95 backdrop-blur-md z-[150] border-b border-white/10 p-4 pb-4">
             
             <div className="flex justify-between items-center mb-3">
@@ -375,40 +485,36 @@ export default function App() {
                      </div>
                  </div>
 
-                 {/* Archive & Save Buttons */}
                  <div className="flex gap-2">
                      <button 
                         onClick={handleResetToDefaults}
                         className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-95"
-                        title="Сброс к начальным настройкам"
+                        title="Сброс"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                       </button>
                      <button 
                        onClick={() => setIsArchiveOpen(true)}
                        className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-95"
-                       title="Архив тренировок"
+                       title="Архив"
                      >
                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                      </button>
                      <button 
                        onClick={() => setIsSaveOpen(true)}
                        className="w-8 h-8 rounded-full bg-white/5 hover:bg-[#ff3d00] flex items-center justify-center text-white/70 hover:text-black transition-all active:scale-95"
-                       title="Сохранить тренировку"
+                       title="Сохранить"
                      >
                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                      </button>
                  </div>
             </div>
 
-            {/* RESTORED Main Display Row (Timer + Gradient Block) */}
             <div className="flex items-stretch gap-3 h-24 sm:h-28">
-              {/* Big Timer */}
               <div className={`flex items-center text-6xl sm:text-7xl font-black font-mono leading-none tracking-tighter tabular-nums ${getPhaseColor()}`}>
                  {formatTime(timeLeft)}
               </div>
 
-              {/* Animated Exercise Block */}
               <div className="flex-1 relative rounded-xl overflow-hidden bg-[#1c1c1e] border border-white/10 shadow-inner group">
                   <div 
                       className={`absolute inset-0 h-full transition-all duration-100 ease-linear ${getGradientClass()}`}
@@ -430,7 +536,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* BODY: List of Rounds */}
           <div className="flex-1 p-4 overflow-y-auto">
             <RoundEditor 
               rounds={rounds}
@@ -449,7 +554,6 @@ export default function App() {
       ) : (
         // --- FOCUS MODE (RUNNING/PAUSED) ---
         <div className="flex-1 flex flex-col relative h-full">
-           {/* Top Info Bar */}
            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent">
                <div className="text-xs font-bold text-white/50 tracking-[0.2em] uppercase">
                   {cycles > 1 ? `C${currentCycle + 1}/${cycles} • ` : ''} 
@@ -460,24 +564,19 @@ export default function App() {
                </div>
            </div>
 
-           {/* Main Content Area: Centered */}
            <div className="flex-1 flex flex-col items-center justify-center p-4 space-y-4 w-full">
               
-              {/* Giant Timer */}
               <div className={`text-[25vw] sm:text-[10rem] font-black leading-none tracking-tighter tabular-nums transition-colors duration-300 ${getPhaseColor()} drop-shadow-[0_0_30px_rgba(0,0,0,0.5)]`}>
                  {formatTime(timeLeft)}
               </div>
 
-              {/* Animated Exercise Name Block (Gradient Filled) */}
               {phase !== Phase.COMPLETE && (
                 <div className="w-full max-w-md relative rounded-2xl overflow-hidden bg-[#1c1c1e] border border-white/10 shadow-2xl h-32 sm:h-40 flex items-center justify-center group mt-4">
-                    {/* Fill Layer */}
                     <div 
                         className={`absolute inset-0 h-full transition-all duration-100 ease-linear ${getGradientClass()}`}
                         style={{ width: `${progressPercent}%` }}
                     />
                     
-                    {/* Text Layer */}
                     <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
                        <span className="text-3xl sm:text-5xl font-black uppercase text-center leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                            {phase === Phase.REST ? 'ОТДЫХ' : (activeRound?.exerciseName || "Раунд")}
@@ -486,22 +585,26 @@ export default function App() {
                 </div>
               )}
 
-              {/* NEXT EXERCISES PREVIEW (New Block) */}
-              {status === TimerStatus.RUNNING && phase !== Phase.COMPLETE && nextExercisesPreview && (
-                  <div className="w-full max-w-md relative rounded-xl overflow-hidden bg-[#1c1c1e] border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.15)] h-12 flex items-center justify-center animate-step-enter">
-                      {/* Soft Blue/Purple Glow Background */}
-                      <div className="absolute inset-0 opacity-20 bg-gradient-to-r from-blue-600 to-purple-600 animate-pulse"></div>
-                      
-                      {/* Content */}
-                      <div className="relative z-10 flex items-center gap-2 px-4 truncate max-w-full">
-                          <span className="text-[10px] uppercase font-bold text-blue-400 tracking-widest opacity-80">Next:</span>
-                          <span 
-                            className="text-blue-100 font-bold uppercase tracking-wide truncate"
-                            style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.2rem)' }}
+              {/* NEXT EXERCISES PREVIEW - STACKED BLOCKS */}
+              {status === TimerStatus.RUNNING && phase !== Phase.COMPLETE && nextExercisesList.length > 0 && (
+                  <div className="w-full max-w-md flex flex-col gap-2 mt-2">
+                      {nextExercisesList.map((round, idx) => (
+                          <div 
+                            key={`${round.id}-${idx}`}
+                            className={`w-full relative rounded-xl overflow-hidden border h-10 sm:h-12 flex items-center justify-center animate-step-enter backdrop-blur-md ${getNextBlockStyle(idx)}`}
                           >
-                             {nextExercisesPreview}
-                          </span>
-                      </div>
+                              {/* Content */}
+                              <div className="relative z-10 flex items-center gap-2 px-4 truncate max-w-full">
+                                  <span className="text-[9px] uppercase font-black tracking-widest opacity-60">Next:</span>
+                                  <span 
+                                    className="font-bold uppercase tracking-wide truncate"
+                                    style={{ fontSize: 'clamp(0.8rem, 2.5vw, 1.1rem)' }}
+                                  >
+                                     {round.exerciseName}
+                                  </span>
+                              </div>
+                          </div>
+                      ))}
                   </div>
               )}
               
@@ -599,27 +702,20 @@ export default function App() {
 
       {/* ARCHIVE DRAWER (Bottom Sheet) */}
       <div className={`fixed inset-0 z-[300] transition-visibility duration-300 ${isArchiveOpen ? 'visible' : 'invisible'}`}>
-        {/* Backdrop */}
         <div 
           className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isArchiveOpen ? 'opacity-100' : 'opacity-0'}`} 
           onClick={() => setIsArchiveOpen(false)}
         />
-        
-        {/* Sheet */}
         <div className={`absolute bottom-0 left-0 right-0 max-w-lg mx-auto bg-[#111] border-t border-white/10 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.8)] h-[80vh] flex flex-col transition-transform duration-300 cubic-bezier(0.16, 1, 0.3, 1) ${isArchiveOpen ? 'translate-y-0' : 'translate-y-full'}`}>
-          
-          {/* Handle */}
           <div className="w-full flex justify-center pt-3 pb-1" onClick={() => setIsArchiveOpen(false)}>
              <div className="w-12 h-1.5 bg-white/20 rounded-full"></div>
           </div>
-
           <div className="px-6 py-4 flex items-center justify-between border-b border-white/5">
              <h2 className="text-2xl font-black uppercase tracking-wide text-white">Архив</h2>
              <button onClick={() => setIsArchiveOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white/50 hover:bg-white/20">
                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
              </button>
           </div>
-
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
              {savedWorkouts.length === 0 ? (
                <div className="text-center text-white/30 py-10">
@@ -637,21 +733,21 @@ export default function App() {
                           <span>{w.cycles && w.cycles > 1 ? `${w.cycles} Циклов • ` : ''}{w.rounds.length} Раундов</span>
                        </div>
                     </div>
-                    {/* ISOLATED DELETE BUTTON */}
-                    <button 
-                      type="button"
-                      onClick={(e) => handleDeleteWorkout(w.id, e)}
-                      className="w-10 h-10 flex items-center justify-center rounded-lg text-white/20 hover:text-red-500 hover:bg-white/5 transition-colors relative z-10"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                    </button>
+                    {!PROTECTED_WORKOUT_IDS.includes(w.id) && (
+                      <button 
+                        type="button"
+                        onClick={(e) => handleDeleteWorkout(w.id, e)}
+                        className="w-10 h-10 flex items-center justify-center rounded-lg text-white/20 hover:text-red-500 hover:bg-white/5 transition-colors relative z-10"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      </button>
+                    )}
                  </div>
                ))
              )}
           </div>
         </div>
       </div>
-
     </div>
   );
 }

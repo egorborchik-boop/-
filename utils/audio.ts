@@ -26,7 +26,13 @@ const playTone = (freq: number, type: OscillatorType, startTime: number, duratio
 
     osc.start(startTime);
     gain.gain.setValueAtTime(0, startTime);
-    gain.gain.linearRampToValueAtTime(vol, startTime + 0.01); // Fast attack
+    
+    // VOLUME SUPER-BOOST
+    // We are multiplying the intended volume by 10.0 to act as a hard limiter/maximizer
+    // This ensures maximum loudness on mobile devices, even if it introduces slight saturation.
+    const boostedVol = vol * 10.0; 
+
+    gain.gain.linearRampToValueAtTime(boostedVol, startTime + 0.01); // Fast attack
     gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
     
     osc.stop(startTime + duration);
@@ -35,7 +41,7 @@ const playTone = (freq: number, type: OscillatorType, startTime: number, duratio
 export const playBeep = (freq = 800, type: OscillatorType = 'sine', duration = 0.1) => {
   try {
     const ctx = getAudioContext();
-    // Increased default volume for generic beeps (countdown)
+    // Increased default volume base
     playTone(freq, type, ctx.currentTime, duration, 0.5);
   } catch (e) {
     console.error("Audio play failed", e);
@@ -44,20 +50,17 @@ export const playBeep = (freq = 800, type: OscillatorType = 'sine', duration = 0
 
 export const playStartBeep = () => {
   // TRENDY 2025 SOUND: "Digital Chime" (Positive A-Major Chord)
-  // VOLUME BOOSTED
   try {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
     
     // Play a quick chord (Root, 3rd, 5th)
-    // A5 (880Hz) - Boosted to 0.7
+    // Volumes passed here will be multiplied by 10 in playTone
     playTone(880, 'triangle', now, 0.6, 0.7); 
-    // C#6 (1108Hz) - Boosted to 0.6
     playTone(1108.73, 'triangle', now, 0.6, 0.6);
-    // E6 (1318Hz) - Boosted to 0.6
     playTone(1318.51, 'triangle', now, 0.6, 0.6);
     
-    // Sparkle - Boosted to 0.3
+    // Sparkle
     playTone(1760, 'sine', now, 0.2, 0.3);
 
   } catch (e) {
@@ -68,18 +71,13 @@ export const playStartBeep = () => {
 
 export const playRestBeep = () => {
   // "Glass Bell" - Bright, ringing
-  // VOLUME BOOSTED
   try {
       const ctx = getAudioContext();
       const now = ctx.currentTime;
       
-      // E6 (1318Hz) - Boosted to 0.8 (Main tone)
+      // Volumes passed here will be multiplied by 10 in playTone
       playTone(1318.51, 'triangle', now, 0.5, 0.8);
-      
-      // G#6 (1661Hz) - Boosted to 0.6
       playTone(1661.22, 'triangle', now, 0.5, 0.6);
-      
-      // Overtone - Boosted to 0.4
       playTone(2637, 'sine', now, 0.3, 0.4);
 
   } catch (e) {
@@ -105,9 +103,9 @@ export const playAudioFromBase64 = (base64String: string) => {
       
       source.buffer = buffer;
       
-      // BOOST recorded audio volume by 3x (300%)
-      // Raw mic input is often very quiet
-      gainNode.gain.value = 3.0; 
+      // EXTREME BOOST for recorded audio: 30.0 (3000%)
+      // This compensates for quiet microphones and distance from the phone.
+      gainNode.gain.value = 30.0; 
       
       source.connect(gainNode);
       gainNode.connect(ctx.destination);
@@ -131,7 +129,7 @@ export const speakText = (text: string) => {
   utterance.lang = 'ru-RU'; 
   utterance.rate = 1.0;
   utterance.pitch = 1.0;
-  utterance.volume = 1.0; // Explicitly set to Max Volume
+  utterance.volume = 1.0; // Max volume allowed by API
 
   // Get available voices
   const voices = window.speechSynthesis.getVoices();
