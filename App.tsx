@@ -391,6 +391,9 @@ export default function App() {
   };
 
   const toggleTimer = () => {
+    // Explicitly unlock audio on user gesture for iOS
+    audio.initAudio();
+
     if (status === TimerStatus.IDLE) {
       setPhase(Phase.PREPARE);
       setCurrentRoundIndex(0);

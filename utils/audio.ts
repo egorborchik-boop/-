@@ -6,10 +6,21 @@ const getAudioContext = () => {
   if (!audioContext) {
     audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
   }
-  if (audioContext.state === 'suspended') {
-    audioContext.resume();
-  }
   return audioContext;
+};
+
+// EXPLICIT UNLOCK FOR IOS
+export const initAudio = () => {
+  const ctx = getAudioContext();
+  if (ctx.state === 'suspended') {
+    ctx.resume();
+  }
+  // Play a silent buffer to wake up the audio engine on iOS
+  const buffer = ctx.createBuffer(1, 1, 22050);
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(ctx.destination);
+  source.start(0);
 };
 
 // Generic envelope helper
@@ -41,6 +52,9 @@ const playTone = (freq: number, type: OscillatorType, startTime: number, duratio
 export const playBeep = (freq = 800, type: OscillatorType = 'sine', duration = 0.1) => {
   try {
     const ctx = getAudioContext();
+    // Ensure running
+    if (ctx.state === 'suspended') ctx.resume();
+
     // Increased default volume base
     playTone(freq, type, ctx.currentTime, duration, 0.5);
   } catch (e) {
@@ -52,6 +66,8 @@ export const playStartBeep = () => {
   // TRENDY 2025 SOUND: "Digital Chime" (Positive A-Major Chord)
   try {
     const ctx = getAudioContext();
+    if (ctx.state === 'suspended') ctx.resume();
+    
     const now = ctx.currentTime;
     
     // Play a quick chord (Root, 3rd, 5th)
@@ -73,6 +89,8 @@ export const playRestBeep = () => {
   // "Glass Bell" - Bright, ringing
   try {
       const ctx = getAudioContext();
+      if (ctx.state === 'suspended') ctx.resume();
+
       const now = ctx.currentTime;
       
       // Volumes passed here will be multiplied by 10 in playTone
@@ -88,6 +106,8 @@ export const playRestBeep = () => {
 export const playAudioFromBase64 = (base64String: string) => {
   try {
     const ctx = getAudioContext();
+    if (ctx.state === 'suspended') ctx.resume();
+
     const base64Content = base64String.includes(',') ? base64String.split(',')[1] : base64String;
     const binaryString = window.atob(base64Content);
     const len = binaryString.length;
