@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RoundEditor } from './components/RoundEditor';
-import { Round, Phase, TimerStatus, SavedWorkout } from './types';
+import { Round, Phase, TimerStatus, SavedWorkout, UserProfile } from './types';
 import * as audio from './utils/audio';
+import { Profile } from './components/Profile';
+import { TrainerMode } from './components/TrainerMode';
 
 const PREPARE_TIME = 5; // seconds
 
@@ -120,6 +122,22 @@ export default function App() {
   const [isFlashing, setIsFlashing] = useState(false);
   const stopwatchRef = useRef<number | null>(null);
 
+  // Profile State
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    try {
+        const stored = localStorage.getItem('judo_timer_profile');
+        return stored ? JSON.parse(stored) : {};
+    } catch(e) {
+        return {};
+    }
+  });
+
+  // Trainer Mode State
+  const [isTrainerMode, setIsTrainerMode] = useState(false);
+  const [isTrainerUIOpen, setIsTrainerUIOpen] = useState(false);
+  const trainerUnlockTimeout = useRef<number | null>(null);
+
   // Archive & Save State
   const [savedWorkouts, setSavedWorkouts] = useState<SavedWorkout[]>(() => {
     try {
@@ -165,6 +183,42 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('judo_timer_workouts', JSON.stringify(savedWorkouts));
   }, [savedWorkouts]);
+
+  // Save profile changes
+  useEffect(() => {
+    localStorage.setItem('judo_timer_profile', JSON.stringify(userProfile));
+  }, [userProfile]);
+
+  // Trainer Mode Activation Logic
+  const openTrainerLogin = () => {
+      const password = prompt("Введите пароль тренера:");
+      if (password === "1324") {
+          setIsTrainerMode(true);
+          setIsTrainerUIOpen(true);
+          // If called from profile, close profile
+          setIsProfileOpen(false);
+          alert("Режим тренера активирован");
+      }
+  };
+
+  const handleLogoDown = () => {
+      trainerUnlockTimeout.current = window.setTimeout(() => {
+          openTrainerLogin();
+      }, 3000); // 3 seconds long press
+  };
+
+  const handleLogoUp = () => {
+      if (trainerUnlockTimeout.current) {
+          clearTimeout(trainerUnlockTimeout.current);
+          trainerUnlockTimeout.current = null;
+      }
+  };
+
+  const handleProfileLogout = () => {
+      const emptyProfile = { id: 'athlete_' + Math.random().toString(36).substr(2, 9) };
+      setUserProfile(emptyProfile);
+      setIsProfileOpen(false); // Close modal on logout
+  };
 
   // --- STOPWATCH LOGIC ---
   useEffect(() => {
@@ -392,6 +446,7 @@ export default function App() {
   };
 
   const handleLoadWorkout = (workout: SavedWorkout) => {
+    if (workout.isManual) return; // Cannot load manual workouts
     setRounds(workout.rounds);
     setCycles(workout.cycles || 1);
     setIsArchiveOpen(false);
@@ -472,18 +527,49 @@ export default function App() {
         <div className="fixed inset-0 z-[999] pointer-events-none animate-pulse bg-gradient-to-br from-purple-500/30 via-red-500/30 to-yellow-500/30 mix-blend-screen"></div>
       )}
 
+      {/* PROFILE MODAL */}
+      {isProfileOpen && (
+        <Profile 
+            profile={userProfile} 
+            workouts={savedWorkouts} 
+            onUpdateProfile={setUserProfile}
+            onAddManualWorkout={(w) => setSavedWorkouts(prev => [w, ...prev])}
+            onClose={() => setIsProfileOpen(false)} 
+            onTrainerLogin={openTrainerLogin}
+            onLogout={handleProfileLogout}
+        />
+      )}
+
+      {/* TRAINER MODE UI */}
+      {isTrainerUIOpen && (
+          <TrainerMode onClose={() => setIsTrainerUIOpen(false)} />
+      )}
+
       {status === TimerStatus.IDLE ? (
         <>
           <div className="sticky top-0 bg-black/95 backdrop-blur-md z-[150] border-b border-white/10 p-4 pb-4">
             
             <div className="flex justify-between items-center mb-3">
                  <div className="flex items-center gap-2">
-                     <div className="text-xs font-bold text-white/50 tracking-[0.2em] uppercase">
+                     {isTrainerMode && (
+                        <button 
+                            onClick={() => setIsTrainerUIOpen(true)}
+                            className="w-8 h-8 flex items-center justify-center bg-[#ff3d00] text-black rounded-lg shadow-[0_0_10px_#ff3d00] animate-pulse mr-2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        </button>
+                     )}
+                     <div 
+                        className="text-xs font-bold text-white/50 tracking-[0.2em] uppercase select-none"
+                        onPointerDown={handleLogoDown}
+                        onPointerUp={handleLogoUp}
+                        onPointerLeave={handleLogoUp}
+                     >
                        {cycles > 1 ? `ЦИКЛЫ: ${cycles}` : 'НАСТРОЙКА'}
                      </div>
                  </div>
 
-                 <div className="flex gap-2">
+                 <div className="flex gap-2 items-center">
                      <button onClick={handleResetToDefaults} className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-95" title="Сброс">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                       </button>
@@ -492,6 +578,18 @@ export default function App() {
                      </button>
                      <button onClick={() => setIsSaveOpen(true)} className="w-8 h-8 rounded-full bg-white/5 hover:bg-[#ff3d00] flex items-center justify-center text-white/70 hover:text-black transition-all active:scale-95" title="Сохранить">
                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                     </button>
+                     
+                     <div className="w-px h-6 bg-white/10 mx-1"></div>
+
+                     <button onClick={() => setIsProfileOpen(true)} className="w-9 h-9 rounded-full overflow-hidden border border-white/20 hover:border-[#ff3d00] transition-colors">
+                        {userProfile.photo ? (
+                            <img src={userProfile.photo} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-[#333] flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            </div>
+                        )}
                      </button>
                  </div>
             </div>
@@ -653,13 +751,16 @@ export default function App() {
                  <div className="text-center text-white/30 py-10"><p className="mb-2 text-4xl opacity-20">📂</p><p className="uppercase text-sm font-bold tracking-widest">Нет сохраненных тренировок</p></div>
                ) : (
                  savedWorkouts.map(w => (
-                   <div key={w.id} onClick={() => handleLoadWorkout(w)} className="bg-[#1c1c1e] p-4 rounded-xl border border-white/5 hover:border-[#ff3d00]/50 active:scale-[0.98] transition-all cursor-pointer group flex justify-between items-center">
+                   <div key={w.id} onClick={() => handleLoadWorkout(w)} className={`bg-[#1c1c1e] p-4 rounded-xl border border-white/5 hover:border-[#ff3d00]/50 active:scale-[0.98] transition-all cursor-pointer group flex justify-between items-center ${w.isManual ? 'opacity-70 grayscale-[0.5]' : ''}`}>
                       <div>
-                         <h3 className="text-lg font-bold text-white group-hover:text-[#ff3d00] transition-colors">{w.name}</h3>
+                         <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-bold text-white group-hover:text-[#ff3d00] transition-colors">{w.name}</h3>
+                            {w.isManual && <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-white/50 font-bold uppercase">Manual</span>}
+                         </div>
                          <div className="text-xs text-white/40 mt-1 flex gap-3">
                             <span>{new Date(w.date).toLocaleDateString()}</span>
                             <span>•</span>
-                            <span>{w.cycles && w.cycles > 1 ? `${w.cycles} Циклов • ` : ''}{w.rounds.length} Раундов</span>
+                            <span>{w.isManual ? `${w.manualDurationMin} мин` : `${w.cycles && w.cycles > 1 ? `${w.cycles} Циклов • ` : ''}${w.rounds.length} Раундов`}</span>
                          </div>
                       </div>
                       {!PROTECTED_WORKOUT_IDS.includes(w.id) && (
