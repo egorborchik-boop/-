@@ -103,9 +103,10 @@ export const playAudioFromBase64 = (base64String: string) => {
       
       source.buffer = buffer;
       
-      // EXTREME BOOST for recorded audio: 30.0 (3000%)
-      // This compensates for quiet microphones and distance from the phone.
-      gainNode.gain.value = 30.0; 
+      // REDUCED BOOST for recorded audio: 5.0 (was 30.0)
+      // 30.0 was causing significant clipping/interference. 
+      // 5.0 still provides a good boost over raw audio.
+      gainNode.gain.value = 5.0; 
       
       source.connect(gainNode);
       gainNode.connect(ctx.destination);

@@ -7,8 +7,10 @@ interface RoundEditorProps {
   cycles: number;
   onUpdateCycles: (val: number) => void;
   onUpdateRound: (id: string, field: keyof Round, value: any) => void;
+  onUpdateAllDurations: (work: number, rest: number) => void;
   onRemoveRound: (id: string) => void;
   onAddRound: () => void;
+  onOpenStopwatch: () => void;
   activeRoundId: string | null;
   isEditable: boolean;
   currentPhase?: Phase;
@@ -35,8 +37,10 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
   cycles,
   onUpdateCycles, 
   onUpdateRound, 
+  onUpdateAllDurations,
   onRemoveRound, 
   onAddRound,
+  onOpenStopwatch,
   activeRoundId,
   isEditable,
   currentPhase,
@@ -61,6 +65,24 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
     if (val < 1) val = 1;
     if (val > 99) val = 99;
     onUpdateCycles(val);
+  };
+
+  // Handlers for Global Time Inputs
+  const globalWork = rounds.length > 0 ? rounds[0].workDuration : 10;
+  const globalRest = rounds.length > 0 ? rounds[0].restDuration : 10;
+
+  const handleGlobalWorkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = parseInt(e.target.value);
+    if (isNaN(val)) val = 0;
+    if (val < 0) val = 0;
+    onUpdateAllDurations(val, globalRest);
+  };
+
+  const handleGlobalRestChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = parseInt(e.target.value);
+    if (isNaN(val)) val = 0;
+    if (val < 0) val = 0;
+    onUpdateAllDurations(globalWork, val);
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -137,43 +159,91 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
   return (
     <div className="flex flex-col gap-2 w-full pb-24">
       
-      {/* HEADER: Cycles (Left) & Training/Add (Right) */}
-      <div className="flex items-end justify-between px-1 mb-2 pt-2 border-b border-white/5 pb-3">
+      {/* HEADER: Cycles/Stopwatch (Left) - Global Time (Center) - Training/Add (Right) */}
+      <div className="flex items-end justify-between px-1 mb-2 pt-2 border-b border-white/5 pb-3 gap-2">
         
-        {/* LEFT: Cycles Control */}
-        <div className="flex flex-col gap-1.5">
-            <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-[10px]">ЦИКЛЫ</h3>
-            <div className="flex items-center bg-[#1c1c1e] rounded-lg border border-white/10 p-0.5">
-                <button 
-                  onClick={() => isEditable && onUpdateCycles(Math.max(1, cycles - 1))}
-                  className="w-8 h-8 flex items-center justify-center text-white/50 hover:text-[#ff3d00] hover:bg-white/5 rounded-md transition-colors active:scale-95 disabled:opacity-30"
-                  disabled={!isEditable}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                </button>
+        {/* LEFT: Cycles + Stopwatch */}
+        <div className="flex gap-2 flex-none">
+            {/* Cycles */}
+            <div className="flex flex-col gap-1.5">
+                <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-[9px] sm:text-[10px]">ЦИКЛЫ</h3>
+                <div className="flex items-center bg-[#1c1c1e] rounded-lg border border-white/10 p-0.5 h-[38px]">
+                    <button 
+                      onClick={() => isEditable && onUpdateCycles(Math.max(1, cycles - 1))}
+                      className="w-8 h-full flex items-center justify-center text-white/50 hover:text-[#ff3d00] hover:bg-white/5 rounded-md transition-colors active:scale-95 disabled:opacity-30"
+                      disabled={!isEditable}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                    
+                    <input 
+                        type="number" 
+                        value={cycles}
+                        onChange={handleCycleChange}
+                        onFocus={handleFocus}
+                        className="w-8 sm:w-10 bg-transparent text-center font-mono text-xl font-bold text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        disabled={!isEditable}
+                    />
+                    
+                    <button 
+                      onClick={() => isEditable && onUpdateCycles(cycles + 1)}
+                      className="w-8 h-full flex items-center justify-center text-white/50 hover:text-[#ff3d00] hover:bg-white/5 rounded-md transition-colors active:scale-95 disabled:opacity-30"
+                      disabled={!isEditable}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            {/* Stopwatch Button */}
+            <div className="flex flex-col justify-end h-[38px] mb-[1px]">
+               <button 
+                  onClick={onOpenStopwatch}
+                  className="w-10 h-full flex items-center justify-center bg-[#1c1c1e] hover:bg-[#ff3d00] border border-white/10 hover:border-[#ff3d00] rounded-lg transition-all active:scale-95 group"
+                  title="Периодический таймер"
+               >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50 group-hover:text-black"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+               </button>
+            </div>
+        </div>
+
+        {/* CENTER: Global Time Controls */}
+        <div className="flex flex-col gap-1.5 flex-1 items-center">
+            <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-[9px] sm:text-[10px]">ВРЕМЯ</h3>
+            <div className="flex items-center bg-[#1c1c1e] rounded-lg border border-white/10 p-0.5 h-[38px] gap-2 px-3 w-full justify-center max-w-[160px]">
+                {/* Work Input */}
+                <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-bold text-[#ff3d00] uppercase">Раб</span>
+                    <input 
+                        type="number"
+                        value={globalWork}
+                        onChange={handleGlobalWorkChange}
+                        onFocus={handleFocus}
+                        className="w-8 bg-transparent text-center font-mono text-lg font-bold text-white focus:outline-none border-b border-white/20 focus:border-[#ff3d00] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        disabled={!isEditable}
+                    />
+                </div>
                 
-                <input 
-                    type="number" 
-                    value={cycles}
-                    onChange={handleCycleChange}
-                    onFocus={handleFocus}
-                    className="w-10 bg-transparent text-center font-mono text-xl font-bold text-white focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    disabled={!isEditable}
-                />
-                
-                <button 
-                  onClick={() => isEditable && onUpdateCycles(cycles + 1)}
-                  className="w-8 h-8 flex items-center justify-center text-white/50 hover:text-[#ff3d00] hover:bg-white/5 rounded-md transition-colors active:scale-95 disabled:opacity-30"
-                  disabled={!isEditable}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                </button>
+                <div className="w-px h-4 bg-white/10"></div>
+
+                {/* Rest Input */}
+                <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-bold text-[#d4ff00] uppercase">Отд</span>
+                    <input 
+                        type="number"
+                        value={globalRest}
+                        onChange={handleGlobalRestChange}
+                        onFocus={handleFocus}
+                        className="w-8 bg-transparent text-center font-mono text-lg font-bold text-white focus:outline-none border-b border-white/20 focus:border-[#d4ff00] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        disabled={!isEditable}
+                    />
+                </div>
             </div>
         </div>
 
         {/* RIGHT: Training Header & Add Button */}
-        <div className="flex flex-col items-end gap-1.5">
-            <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-[10px]">ТРЕНИРОВКА</h3>
+        <div className="flex flex-col items-end gap-1.5 flex-none">
+            <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-[9px] sm:text-[10px]">ТРЕНИРОВКА</h3>
             {isEditable && (
               <button 
                 onClick={onAddRound}
@@ -182,7 +252,8 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                 <div className="w-4 h-4 rounded-full bg-white/10 group-hover:bg-black/20 flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="text-white group-hover:text-black"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </div>
-                <span className="text-[10px] font-black uppercase text-white group-hover:text-black tracking-wider">Добавить</span>
+                <span className="text-[10px] font-black uppercase text-white group-hover:text-black tracking-wider hidden sm:inline">Добавить</span>
+                <span className="text-[10px] font-black uppercase text-white group-hover:text-black tracking-wider sm:hidden">ADD</span>
               </button>
             )}
         </div>
@@ -194,14 +265,9 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
            const isRunning = timerStatus === TimerStatus.RUNNING;
            const isDropdownOpen = openDropdownId === round.id;
            const isRecording = recordingRoundId === round.id;
-           
            const isWorkActive = isActive && currentPhase === Phase.WORK && isRunning;
            const isRestActive = isActive && currentPhase === Phase.REST && isRunning;
-           
-           // Calculate z-index: Dropdown Open > Active Round > Normal Round
            const zIndexClass = isDropdownOpen ? 'z-[100]' : (isActive ? 'z-10' : 'z-0');
-           
-           // TTS is disabled by default (false or undefined = off)
            const isTTSEnabled = round.ttsEnabled === true;
 
            return (
@@ -209,7 +275,6 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
               key={round.id} 
               className={`relative transition-all duration-300 ${zIndexClass}`}
             >
-              {/* Animated Glow Underneath the whole row */}
               {isActive && isRunning && (
                 <div 
                   className={`absolute inset-0 rounded-lg blur-xl opacity-40 transition-colors duration-300 animate-pulse ${
@@ -219,7 +284,6 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
               )}
 
               <div className="flex gap-1 items-stretch">
-                {/* Index Block (Fixed Square Parallel to Content) */}
                 <div className={`w-12 flex-none rounded-lg flex flex-col items-center justify-center font-mono font-bold text-xl border transition-all duration-300 relative group
                     ${isActive && isRunning 
                         ? 'border-transparent ' + (currentPhase === Phase.WORK ? 'bg-[#ff3d00] text-black shadow-[0_0_15px_#ff3d00]' : 'bg-[#d4ff00] text-black shadow-[0_0_15px_#d4ff00]') 
@@ -227,8 +291,6 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                     }
                     ${isActive && isRunning ? 'animate-sync-pulse' : ''}
                 `}>
-                   {/* Logic: If recording, show Stop. Else, show Number or Audio Controls */}
-                   
                    {isRecording ? (
                         <button 
                             onClick={stopRecording}
@@ -238,7 +300,6 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                         </button>
                    ) : (
                        <>
-                           {/* If custom audio exists, show Play/Delete/Re-record controls */}
                            {round.customAudio ? (
                                <div className="relative w-full h-full flex items-center justify-center group/audio">
                                     <button 
@@ -251,7 +312,6 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                                     
                                     {isEditable && (
                                         <>
-                                            {/* Delete Button */}
                                             <button 
                                                 onClick={(e) => deleteRecording(e, round.id)}
                                                 className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center bg-[#222] text-white/50 hover:text-red-500 rounded-full border border-white/10 z-20 hover:scale-110 transition-all shadow-md"
@@ -260,7 +320,6 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                             </button>
 
-                                            {/* Re-record Button */}
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); startRecording(round.id); }}
                                                 className="absolute -bottom-1 -right-1 w-5 h-5 flex items-center justify-center bg-[#222] text-white/50 hover:text-[#ff3d00] rounded-full border border-white/10 z-20 hover:scale-110 transition-all shadow-md"
@@ -272,11 +331,8 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                                     )}
                                </div>
                            ) : (
-                               // Default State: Show Number
                                <>
                                    <span className="text-xl mb-1">{idx + 1}</span>
-                                   
-                                   {/* Mic Button - ALWAYS VISIBLE NOW */}
                                    {isEditable && (
                                      <button 
                                         onClick={() => startRecording(round.id)}
@@ -292,14 +348,11 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                    )}
                 </div>
 
-                {/* Main Content Card */}
                 <div className={`flex-1 rounded-lg p-2 relative transition-colors duration-300 border flex flex-col gap-1 ${
                     isActive ? 'bg-[#111] border-transparent' : 'bg-[#1c1c1e] border-white/5'
                   }`}
                 >
-                  {/* Top Block: Exercise Name & Delete Button */}
                   <div className="flex gap-1 h-9 relative z-30">
-                    {/* Name Block */}
                     <div 
                         className={`flex-1 relative rounded bg-white/5 border border-white/5 flex items-center px-2 transition-colors group/input ${isEditable ? 'hover:border-white/20 cursor-pointer' : ''}`}
                         onClick={() => isEditable && toggleDropdown(round.id)}
@@ -316,12 +369,11 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                                   }}
                                   onClick={(e) => e.stopPropagation()} 
                                   className="w-full bg-transparent text-white text-sm font-bold uppercase tracking-wide focus:outline-none placeholder:text-white/20 truncate pr-6"
-                                  placeholder="РАУНД"
+                                  placeholder="УПРАЖНЕНИЕ"
                                   autoComplete="off"
                                 />
                                 
                                 <div className="absolute right-2 top-0 bottom-0 flex items-center gap-2">
-                                    {/* TTS Toggle Button */}
                                     {round.exerciseName && (
                                         <button 
                                             onClick={(e) => toggleTTS(e, round.id, round.ttsEnabled)}
@@ -362,7 +414,6 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                          )}
                     </div>
                     
-                    {/* Delete Round Button Block */}
                     {isEditable && (
                       <button 
                         onClick={() => onRemoveRound(round.id)}
@@ -375,9 +426,7 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                     )}
                   </div>
 
-                  {/* Bottom Block: Durations */}
                   <div className="grid grid-cols-2 gap-1 h-10">
-                    {/* WORK MODULE */}
                     <div 
                       className={`bg-[#000] rounded px-2 py-0.5 flex flex-col justify-center border transition-all duration-300 relative group overflow-hidden ${
                         isWorkActive 
@@ -411,7 +460,6 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
                        </div>
                     </div>
 
-                    {/* REST MODULE */}
                     <div 
                       className={`bg-[#000] rounded px-2 py-0.5 flex flex-col justify-center border transition-all duration-300 relative overflow-hidden ${
                         isRestActive 
