@@ -39,7 +39,7 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
   onUpdateRound, 
   onUpdateAllDurations,
   onRemoveRound, 
-  onAddRound,
+  onAddRound, 
   onOpenStopwatch,
   activeRoundId,
   isEditable,
@@ -160,10 +160,10 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
     <div className="flex flex-col gap-2 w-full pb-24">
       
       {/* HEADER: Cycles/Stopwatch (Left) - Global Time (Center) - Training/Add (Right) */}
-      <div className="flex items-end justify-between px-1 mb-2 pt-2 border-b border-white/5 pb-3 gap-2">
+      <div className="flex flex-wrap items-end justify-between px-1 mb-2 pt-2 border-b border-white/5 pb-3 gap-2">
         
         {/* LEFT: Cycles + Stopwatch */}
-        <div className="flex gap-2 flex-none">
+        <div className="flex gap-2 flex-none order-1">
             {/* Cycles */}
             <div className="flex flex-col gap-1.5">
                 <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-[9px] sm:text-[10px]">ЦИКЛЫ</h3>
@@ -208,7 +208,7 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
         </div>
 
         {/* CENTER: Global Time Controls */}
-        <div className="flex flex-col gap-1.5 flex-1 items-center">
+        <div className="flex flex-col gap-1.5 flex-1 items-center order-2 min-w-[150px]">
             <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-[9px] sm:text-[10px]">ВРЕМЯ</h3>
             <div className="flex items-center bg-[#1c1c1e] rounded-lg border border-white/10 p-0.5 h-[38px] gap-2 px-3 w-full justify-center max-w-[160px]">
                 {/* Work Input */}
@@ -242,18 +242,17 @@ export const RoundEditor: React.FC<RoundEditorProps> = ({
         </div>
 
         {/* RIGHT: Training Header & Add Button */}
-        <div className="flex flex-col items-end gap-1.5 flex-none">
-            <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-[9px] sm:text-[10px]">ТРЕНИРОВКА</h3>
+        <div className="flex flex-col items-end gap-1.5 order-3 w-full sm:w-auto sm:flex-none mt-1 sm:mt-0">
+            <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-[9px] sm:text-[10px] w-full text-right sm:w-auto">ТРЕНИРОВКА</h3>
             {isEditable && (
               <button 
                 onClick={onAddRound}
-                className="flex items-center gap-2 px-3 h-[38px] bg-[#1c1c1e] hover:bg-[#ff3d00] border border-white/10 hover:border-[#ff3d00] rounded-lg transition-all active:scale-95 group"
+                className="flex items-center justify-center gap-2 px-3 h-[38px] bg-[#1c1c1e] hover:bg-[#ff3d00] border border-white/10 hover:border-[#ff3d00] rounded-lg transition-all active:scale-95 group w-full sm:w-auto"
               >
                 <div className="w-4 h-4 rounded-full bg-white/10 group-hover:bg-black/20 flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="text-white group-hover:text-black"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </div>
-                <span className="text-[10px] font-black uppercase text-white group-hover:text-black tracking-wider hidden sm:inline">Добавить</span>
-                <span className="text-[10px] font-black uppercase text-white group-hover:text-black tracking-wider sm:hidden">ADD</span>
+                <span className="text-[10px] font-black uppercase text-white group-hover:text-black tracking-wider">Добавить</span>
               </button>
             )}
         </div>
