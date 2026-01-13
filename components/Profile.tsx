@@ -13,13 +13,6 @@ interface ProfileProps {
 
 const WORKOUT_TYPES = ["Табата", "Силовая", "Кардио", "Растяжка", "Борьба"];
 
-const MOCK_LEADERBOARD = [
-  { name: "Алексей И.", workouts: 142, avatar: null },
-  { name: "Дмитрий К.", workouts: 115, avatar: null },
-  { name: "Иван С.", workouts: 98, avatar: null },
-  { name: "Мария П.", workouts: 87, avatar: null },
-];
-
 export const Profile: React.FC<ProfileProps> = ({
   profile,
   workouts,
@@ -45,6 +38,9 @@ export const Profile: React.FC<ProfileProps> = ({
   const [manualType, setManualType] = useState(WORKOUT_TYPES[0]);
   const [manualDuration, setManualDuration] = useState(30);
   const [manualComment, setManualComment] = useState('');
+  
+  // QR Zoom State
+  const [isQRZoomed, setIsQRZoomed] = useState(false);
 
   // --- Achievements Logic ---
 
@@ -215,12 +211,7 @@ export const Profile: React.FC<ProfileProps> = ({
       onTrainerLogin();
   };
 
-  // Combine real user with mock leaderboard for display
   const totalWorkouts = workouts.length;
-  const combinedLeaderboard = [
-    ...MOCK_LEADERBOARD.map(u => ({ ...u, isMe: false, avatar: u.avatar as string | null | undefined })),
-    { name: profile.name || "Вы", workouts: totalWorkouts, avatar: profile.photo, isMe: true }
-  ].sort((a,b) => b.workouts - a.workouts).slice(0, 10);
 
   // Generate QR Code URL
   // We use the ID if available, otherwise a placeholder to prevent broken image
@@ -231,7 +222,8 @@ export const Profile: React.FC<ProfileProps> = ({
     name: qrName,
     photo: null // Don't put base64 in QR, too big
   });
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&bgcolor=000000&color=ffffff&margin=10&data=${encodeURIComponent(qrData)}`;
+  // Using higher resolution for better scanning
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&bgcolor=000000&color=ffffff&margin=10&data=${encodeURIComponent(qrData)}`;
 
   return (
     <div className="fixed inset-0 z-[400] bg-black text-white flex flex-col overflow-hidden animate-step-enter">
@@ -287,11 +279,11 @@ export const Profile: React.FC<ProfileProps> = ({
                     
                     {/* Explicit QR Container */}
                     <div className="flex items-center gap-3 mt-1">
-                        <div className="w-16 h-16 bg-white p-1 rounded-lg overflow-hidden flex-none">
+                        <button onClick={() => setIsQRZoomed(true)} className="w-16 h-16 bg-white p-1 rounded-lg overflow-hidden flex-none cursor-pointer hover:opacity-80 transition-opacity">
                             <img src={qrUrl} alt="Athlete ID" className="w-full h-full object-contain" />
-                        </div>
+                        </button>
                         <div className="text-[10px] text-white/40 leading-tight">
-                            Покажите этот QR-код тренеру для добавления в группу.
+                            Нажмите на QR-код, чтобы увеличить его для сканирования.
                         </div>
                     </div>
                 </div>
@@ -423,31 +415,26 @@ export const Profile: React.FC<ProfileProps> = ({
              )}
         </div>
 
-        {/* LEADERBOARD */}
+        {/* STATS SECTION (REPLACED FAKE LEADERBOARD) */}
         <div className="flex flex-col gap-3">
-            <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-xs pl-1">Рейтинг спортсменов</h3>
+            <h3 className="text-white/40 font-bold uppercase tracking-[0.2em] text-xs pl-1">Моя статистика</h3>
             <div className="bg-[#1c1c1e] rounded-xl border border-white/10 overflow-hidden">
-                {combinedLeaderboard.map((user, idx) => (
-                    <div 
-                        key={idx} 
-                        className={`flex items-center gap-3 p-3 border-b border-white/5 last:border-0 ${user.isMe ? 'bg-[#ff3d00]/10' : ''}`}
-                    >
-                        <div className="w-6 text-center text-xs font-mono font-bold text-white/30">{idx + 1}</div>
-                        <div className={`w-8 h-8 rounded-full overflow-hidden flex items-center justify-center ${user.isMe ? 'border border-[#ff3d00]' : 'bg-white/10'}`}>
-                            {user.avatar ? (
-                                <img src={user.avatar} className="w-full h-full object-cover" alt="" />
-                            ) : (
-                                <span className="text-xs">🥋</span>
-                            )}
-                        </div>
-                        <div className="flex-1">
-                            <div className={`text-sm font-bold ${user.isMe ? 'text-[#ff3d00]' : 'text-white'}`}>{user.name}</div>
-                        </div>
-                        <div className="text-xs font-mono text-white/60">
-                            <span className="text-white font-bold">{user.workouts}</span> Трен.
-                        </div>
+                <div className="flex items-center gap-3 p-3 bg-[#ff3d00]/10 border-b border-white/5 last:border-0">
+                    <div className="w-6 text-center text-xs font-mono font-bold text-white/30">#1</div>
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center border border-[#ff3d00]">
+                        {profile.photo ? (
+                            <img src={profile.photo} className="w-full h-full object-cover" alt="" />
+                        ) : (
+                            <span className="text-xs">🥋</span>
+                        )}
                     </div>
-                ))}
+                    <div className="flex-1">
+                        <div className="text-sm font-bold text-[#ff3d00]">{profile.name || "Спортсмен"}</div>
+                    </div>
+                    <div className="text-xs font-mono text-white/60">
+                        <span className="text-white font-bold">{totalWorkouts}</span> Трен.
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -470,6 +457,16 @@ export const Profile: React.FC<ProfileProps> = ({
         </div>
 
       </div>
+
+      {/* QR ZOOM MODAL */}
+      {isQRZoomed && (
+          <div className="fixed inset-0 z-[600] bg-black flex flex-col items-center justify-center p-6 animate-step-enter" onClick={() => setIsQRZoomed(false)}>
+              <div className="bg-white p-4 rounded-3xl max-w-sm w-full">
+                  <img src={qrUrl} alt="Athlete ID Full" className="w-full h-auto object-contain" />
+              </div>
+              <p className="text-white/50 mt-4 text-center text-sm font-bold uppercase tracking-widest">Нажмите в любом месте, чтобы закрыть</p>
+          </div>
+      )}
     </div>
   );
 };

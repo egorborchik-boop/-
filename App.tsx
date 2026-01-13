@@ -134,7 +134,10 @@ export default function App() {
   });
 
   // Trainer Mode State
-  const [isTrainerMode, setIsTrainerMode] = useState(false);
+  // Initialize from localStorage to persist login state
+  const [isTrainerMode, setIsTrainerMode] = useState(() => {
+      return localStorage.getItem('judo_trainer_auth') === 'true';
+  });
   const [isTrainerUIOpen, setIsTrainerUIOpen] = useState(false);
   const trainerUnlockTimeout = useRef<number | null>(null);
 
@@ -194,11 +197,18 @@ export default function App() {
       const password = prompt("Введите пароль тренера:");
       if (password === "1324") {
           setIsTrainerMode(true);
+          localStorage.setItem('judo_trainer_auth', 'true');
           setIsTrainerUIOpen(true);
           // If called from profile, close profile
           setIsProfileOpen(false);
           alert("Режим тренера активирован");
       }
+  };
+  
+  const exitTrainerMode = () => {
+      setIsTrainerMode(false);
+      localStorage.removeItem('judo_trainer_auth');
+      setIsTrainerUIOpen(false);
   };
 
   const handleLogoDown = () => {

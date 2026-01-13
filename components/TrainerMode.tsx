@@ -7,12 +7,6 @@ interface TrainerModeProps {
 
 declare const Html5QrcodeScanner: any;
 
-const MOCK_STUDENT_WORKOUTS: SavedWorkout[] = [
-  { id: 'sw1', name: 'Утренняя Табата', date: Date.now() - 86400000 * 1, rounds: [], cycles: 1, isManual: true, manualDurationMin: 30, manualComment: 'Тяжело дышал' },
-  { id: 'sw2', name: 'Силовая', date: Date.now() - 86400000 * 3, rounds: [], cycles: 1, isManual: true, manualDurationMin: 45 },
-  { id: 'sw3', name: 'День борьбы', date: Date.now() - 86400000 * 5, rounds: [], cycles: 1, isManual: true, manualDurationMin: 60, manualComment: 'Отработка бросков' },
-];
-
 export const TrainerMode: React.FC<TrainerModeProps> = ({ onClose }) => {
   const [data, setData] = useState<TrainerData>(() => {
     try {
@@ -122,8 +116,10 @@ export const TrainerMode: React.FC<TrainerModeProps> = ({ onClose }) => {
       const student = data.students.find(s => s.id === selectedStudentId);
       if (!student) return null;
 
-      // Mock workouts mixed with real logic would go here. 
-      // For MVP, we render mock list but store assessments against mock IDs
+      // In a real app, we would fetch workouts from a server.
+      // Since this is local-only and QR doesn't transfer history, we show an empty state.
+      const studentWorkouts: SavedWorkout[] = []; 
+
       return (
         <div className="flex flex-col h-full bg-black">
              <div className="p-4 border-b border-white/10 flex items-center gap-4 bg-[#1c1c1e]">
@@ -142,59 +138,67 @@ export const TrainerMode: React.FC<TrainerModeProps> = ({ onClose }) => {
              </div>
 
              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                 {MOCK_STUDENT_WORKOUTS.map(w => {
-                     const assessment = data.assessments[student.id]?.[w.id] || { rating: 0, comment: '' };
-                     
-                     return (
-                         <div key={w.id} className="bg-[#1c1c1e] rounded-xl border border-white/10 p-4 flex flex-col gap-3">
-                             <div className="flex justify-between items-start">
-                                 <div>
-                                     <h3 className="font-bold text-[#ff3d00]">{w.name}</h3>
-                                     <div className="text-xs text-white/50 mt-1">
-                                         {new Date(w.date).toLocaleDateString()} • {w.manualDurationMin} мин
-                                         {w.isManual && <span className="ml-2 px-1.5 py-0.5 rounded bg-white/10 text-white/70">Manual</span>}
+                 {studentWorkouts.length === 0 ? (
+                     <div className="flex flex-col items-center justify-center py-20 opacity-50">
+                         <div className="text-4xl mb-2">📭</div>
+                         <p className="text-white font-bold uppercase tracking-widest text-sm">История пуста</p>
+                         <p className="text-white/50 text-xs mt-1 text-center max-w-[200px]">Данные о тренировках еще не синхронизированы.</p>
+                     </div>
+                 ) : (
+                     studentWorkouts.map(w => {
+                         const assessment = data.assessments[student.id]?.[w.id] || { rating: 0, comment: '' };
+                         
+                         return (
+                             <div key={w.id} className="bg-[#1c1c1e] rounded-xl border border-white/10 p-4 flex flex-col gap-3">
+                                 <div className="flex justify-between items-start">
+                                     <div>
+                                         <h3 className="font-bold text-[#ff3d00]">{w.name}</h3>
+                                         <div className="text-xs text-white/50 mt-1">
+                                             {new Date(w.date).toLocaleDateString()} • {w.manualDurationMin} мин
+                                             {w.isManual && <span className="ml-2 px-1.5 py-0.5 rounded bg-white/10 text-white/70">Manual</span>}
+                                         </div>
+                                     </div>
+                                 </div>
+
+                                 {/* TRAINER CONTROLS */}
+                                 <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col gap-3">
+                                     <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/40">Оценка тренера</h4>
+                                     
+                                     <div className="flex items-center gap-2">
+                                         {[1, 2, 3, 4, 5].map(star => (
+                                             <button 
+                                                key={star}
+                                                onClick={() => saveAssessment(w.id, star, assessment.comment)}
+                                                className={`text-2xl transition-transform active:scale-90 ${star <= assessment.rating ? 'text-[#FFD700]' : 'text-white/10'}`}
+                                             >
+                                                 ★
+                                             </button>
+                                         ))}
+                                     </div>
+
+                                     <div className="flex gap-2">
+                                         <input 
+                                            type="text" 
+                                            defaultValue={assessment.comment}
+                                            onBlur={(e) => saveAssessment(w.id, assessment.rating, e.target.value)}
+                                            placeholder="Комментарий тренера..." 
+                                            className="flex-1 bg-transparent border-b border-white/10 text-sm py-1 focus:outline-none focus:border-[#ff3d00] text-white"
+                                         />
+                                         <button 
+                                            className="text-xs font-bold text-[#ff3d00] uppercase"
+                                            onClick={(e) => {
+                                                const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                                                saveAssessment(w.id, assessment.rating, input.value);
+                                            }}
+                                         >
+                                             Сохранить
+                                         </button>
                                      </div>
                                  </div>
                              </div>
-
-                             {/* TRAINER CONTROLS */}
-                             <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col gap-3">
-                                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-white/40">Оценка тренера</h4>
-                                 
-                                 <div className="flex items-center gap-2">
-                                     {[1, 2, 3, 4, 5].map(star => (
-                                         <button 
-                                            key={star}
-                                            onClick={() => saveAssessment(w.id, star, assessment.comment)}
-                                            className={`text-2xl transition-transform active:scale-90 ${star <= assessment.rating ? 'text-[#FFD700]' : 'text-white/10'}`}
-                                         >
-                                             ★
-                                         </button>
-                                     ))}
-                                 </div>
-
-                                 <div className="flex gap-2">
-                                     <input 
-                                        type="text" 
-                                        defaultValue={assessment.comment}
-                                        onBlur={(e) => saveAssessment(w.id, assessment.rating, e.target.value)}
-                                        placeholder="Комментарий тренера..." 
-                                        className="flex-1 bg-transparent border-b border-white/10 text-sm py-1 focus:outline-none focus:border-[#ff3d00] text-white"
-                                     />
-                                     <button 
-                                        className="text-xs font-bold text-[#ff3d00] uppercase"
-                                        onClick={(e) => {
-                                            const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                                            saveAssessment(w.id, assessment.rating, input.value);
-                                        }}
-                                     >
-                                         Сохранить
-                                     </button>
-                                 </div>
-                             </div>
-                         </div>
-                     );
-                 })}
+                         );
+                     })
+                 )}
              </div>
         </div>
       );
